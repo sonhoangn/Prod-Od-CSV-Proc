@@ -1,8 +1,9 @@
 import os
 import sys
-from tkinter import Button, Label, StringVar, Tk, filedialog, messagebox, PhotoImage
+from tkinter import Button, Label, StringVar, Tk, filedialog, messagebox
 import pandas as pd
 from openpyxl.styles import Border, Font, PatternFill, Side
+from PIL import Image, ImageTk
 
 
 def process_csv_to_excel(input_csv_path):
@@ -49,7 +50,7 @@ def process_csv_to_excel(input_csv_path):
 
         file_dir, file_name = os.path.split(input_csv_path)
         base_name = os.path.splitext(file_name)[0]
-        output_excel_path = os.path.join(file_dir, base_name + "_processed.xlsx")
+        output_excel_path = os.path.join(file_dir, base_name + "_p.xlsx")
 
         with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Processed Data")
@@ -110,55 +111,80 @@ class AppGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("CSV Data Processor")
-        self.root.geometry("450x300")
-        self.root.resizable(False, False)
-        self.root.configure(bg="#121212")
 
-        # Color Configuration Constants
+        # Dimensions
+        self.window_width = 450
+        self.window_height = 300
+        self.root.geometry(f"{self.window_width}x{self.window_height}")
+        self.root.resizable(False, False)
+
         self.bg_dark = "#121212"
         self.bg_panel = "#1E1E1E"
         self.fg_white = "#FFFFFF"
         self.fg_gray = "#A0A0A0"
 
+        self.root.configure(bg=self.bg_dark)
+
         self.file_path_var = StringVar()
         self.file_path_var.set("No file selected.")
 
-        # --- Resolve Icon Path Safely ---
         if getattr(sys, "frozen", False):
             base_path = sys._MEIPASS
         else:
             base_path = os.path.dirname(os.path.abspath(__file__))
+
         icon_filename = os.path.join(base_path, "icon.png")
+        bg_filename = os.path.join(base_path, "bg1.png")
+        gif_filename = os.path.join(base_path, "logo_t.gif")
 
-        # Initialize asset reference states
         self.app_icon = None
-        has_icon = False
+        self.pil_bg_base = None
+        self.gif_frames = []
+        self.current_frame_idx = 0
 
-        # --- ONE-TIME IMAGE LOADING AND ASSIGNMENT ---
+        # --- Load Title Bar Icon ---
         if os.path.exists(icon_filename):
             try:
-                # Load exactly once into a persistent instance variable
-                self.app_icon = PhotoImage(file=icon_filename)
-
-                # Set title bar icon
+                pil_icon = Image.open(icon_filename)
+                self.app_icon = ImageTk.PhotoImage(pil_icon)
                 self.root.iconphoto(False, self.app_icon)
-                has_icon = True
             except Exception as e:
-                print(f"Image runtime initialization error: {e}")
+                print(f"Failed to load title bar icon: {e}")
 
-        # 1. ICON / LOGO DISPLAY PANEL
-        self.label_icon = Label(root, bg=self.bg_dark, fg=self.fg_gray)
-        self.label_icon.pack(pady=(15, 2))
+        # --- Load Base Background Image ---
+        if os.path.exists(bg_filename):
+            try:
+                self.pil_bg_base = Image.open(bg_filename).convert("RGBA")
+                self.pil_bg_base = self.pil_bg_base.resize(
+                    (self.window_width, self.window_height), Image.Resampling.LANCZOS
+                )
+            except Exception as e:
+                print(f"Failed to load base background image: {e}")
 
-        if has_icon:
-            # Reuse the single verified image reference object safely
-            self.label_icon.config(image=self.app_icon)
-        else:
-            self.label_icon.config(
-                text="▪ ▪ ▪  [ ICON PLACEHOLDER ]  ▪ ▪ ▪", font=("Consolas", 9)
-            )
+        # --- Load and Process GIF Frames ---
+        if os.path.exists(gif_filename):
+            try:
+                pil_gif = Image.open(gif_filename)
+                idx = 0
+                while True:
+                    pil_gif.seek(idx)
+                    frame_raw = pil_gif.copy().convert("RGBA")
+                    frame_resized = frame_raw.resize((128, 128), Image.Resampling.LANCZOS)
+                    self.gif_frames.append(frame_resized)
+                    idx += 1
+            except EOFError:
+                pass
+            except Exception as e:
+                print(f"Error parsing animated GIF frames: {e}")
 
-        # 2. Text Labels
+        # Master background wrapper label setup
+        self.label_bg = Label(root, bd=0)
+        self.label_bg.place(x=0, y=0, relwidth=1, relheight=1)
+
+        if not self.pil_bg_base:
+            self.label_bg.configure(bg=self.bg_dark)
+
+        # 1. Text Labels
         self.label_title = Label(
             root,
             text="SELECTED INPUT FILE:",
@@ -166,7 +192,7 @@ class AppGUI:
             bg=self.bg_dark,
             fg=self.fg_white,
         )
-        self.label_title.pack(pady=(5, 2))
+        self.label_title.pack(pady=(140, 2))
 
         self.label_path = Label(
             root,
@@ -176,9 +202,9 @@ class AppGUI:
             bg=self.bg_dark,
             font=("Consolas", 9),
         )
-        self.label_path.pack(pady=(0, 10))
+        self.label_path.pack(pady=(0, 5))
 
-        # 3. Stark Action Buttons
+        # 2. Action Buttons
         self.btn_browse = Button(
             root,
             text="BROWSE FILE",
@@ -192,7 +218,7 @@ class AppGUI:
             relief="flat",
             command=self.browse_file,
         )
-        self.btn_browse.pack(pady=4)
+        self.btn_browse.pack(pady=3)
 
         self.btn_process = Button(
             root,
@@ -207,7 +233,36 @@ class AppGUI:
             relief="flat",
             command=self.start_processing,
         )
-        self.btn_process.pack(pady=4)
+        self.btn_process.pack(pady=3)
+
+        if self.pil_bg_base:
+            self.label_title.configure(bg="#1A1A1A")
+            self.label_path.configure(bg="#1A1A1A")
+
+        self.animate_interface()
+
+    def animate_interface(self):
+        if self.pil_bg_base and self.gif_frames:
+            dynamic_bg = self.pil_bg_base.copy()
+            current_frame = self.gif_frames[self.current_frame_idx]
+            dynamic_bg.alpha_composite(current_frame, dest=(161, 5))
+            self.tk_rendered_bg = ImageTk.PhotoImage(dynamic_bg)
+            self.label_bg.configure(image=self.tk_rendered_bg)
+            self.current_frame_idx = (self.current_frame_idx + 1) % len(self.gif_frames)
+            self.root.after(50, self.animate_interface)
+
+        elif not self.pil_bg_base and self.gif_frames:
+            solid_bg = Image.new("RGBA", (self.window_width, self.window_height), self.bg_dark)
+            current_frame = self.gif_frames[self.current_frame_idx]
+            dynamic_bg.alpha_composite(current_frame, dest=(161, 5))
+            self.tk_rendered_bg = ImageTk.PhotoImage(solid_bg)
+            self.label_bg.configure(image=self.tk_rendered_bg)
+            self.current_frame_idx = (self.current_frame_idx + 1) % len(self.gif_frames)
+            self.root.after(50, self.animate_interface)
+
+        elif self.pil_bg_base and not self.gif_frames:
+            self.tk_rendered_bg = ImageTk.PhotoImage(self.pil_bg_base)
+            self.label_bg.configure(image=self.tk_rendered_bg)
 
     def browse_file(self):
         selected_file = filedialog.askopenfilename(
@@ -225,7 +280,6 @@ class AppGUI:
             )
             return
         process_csv_to_excel(current_path)
-
 
 def run_gui():
     root = Tk()

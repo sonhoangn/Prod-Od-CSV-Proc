@@ -6,9 +6,7 @@ a = Analysis(
     ["csv_processor.py"],
     pathex=[],
     binaries=[],
-    datas=[
-        ("icon.png", ".")
-    ],
+    datas=[("icon.png", "."), ("bg1.png", "."), ("logo_t.gif", ".")],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

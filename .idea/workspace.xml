@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="f8375db8-e3de-4750-aca6-c9de6c23be0a" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/ProductionOrderConversion.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/dbnavigator.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/csv_processor.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/csv_processor.spec" afterDir="false" />
+    <list default="true" id="f8375db8-e3de-4750-aca6-c9de6c23be0a" name="Changes" comment="Release.">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/csv_processor.py" beforeDir="false" afterPath="$PROJECT_DIR$/csv_processor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/csv_processor.spec" beforeDir="false" afterPath="$PROJECT_DIR$/csv_processor.spec" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -24,6 +21,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "sonhoangn"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/sonhoangn/Prod-Od-CSV-Proc",
+    "accountId": "9735fd02-389b-49c4-b0f0-5f34204de22a"
+  }
+}]]></component>
   <component name="ProjectColorInfo"><![CDATA[{
   "associatedIndex": 7
 }]]></component>
@@ -56,6 +65,19 @@
       <option name="presentableId" value="Default" />
       <updated>1780542697276</updated>
     </task>
+    <task id="LOCAL-00001" summary="Release.">
+      <option name="closed" value="true" />
+      <created>1780548683078</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1780548683078</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Release." />
+    <option name="LAST_COMMIT_MESSAGE" value="Release." />
   </component>
 </project>
