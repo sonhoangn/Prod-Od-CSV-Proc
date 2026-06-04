@@ -5,12 +5,28 @@ import pandas as pd
 from openpyxl.styles import Border, Font, PatternFill, Side
 from PIL import Image, ImageTk
 
+# --- Global Localization Dictionary ---
+localization = {
+    "language": "EN",
+    "title": "CSV Data Processor",
+    "selected file": "No file selected.",
+    "instruction label": "SELECTED INPUT FILE:",
+    "browse button": "BROWSE FILE",
+    "execute button": "EXECUTE PROCESS",
+    "warning title": "Warning",
+    "warning message": "Please select a valid CSV file first before executing.",
+    "selection dialogue": "Select CSV file",
+    "completion title": "Success",
+    "completion message": "Data successfully processed!\n\nSaved to: ",
+    "error title": "Error",
+    "error message": "An error occurred:\n\n"
+}
+
 
 def process_csv_to_excel(input_csv_path):
+    global language
     try:
-        print(f"Importing data from: {input_csv_path}\n")
         df = pd.read_csv(input_csv_path, sep=";", dtype=str)
-        print("Data successfully imported. Applying transformations...\n")
 
         if "VEHICLE-NUMBER" in df.columns:
             df["VEHICLE-NUMBER"] = df["VEHICLE-NUMBER"].str[:17]
@@ -50,7 +66,7 @@ def process_csv_to_excel(input_csv_path):
 
         file_dir, file_name = os.path.split(input_csv_path)
         base_name = os.path.splitext(file_name)[0]
-        output_excel_path = os.path.join(file_dir, base_name + "_p.xlsx")
+        output_excel_path = os.path.join(file_dir, base_name + "_processed.xlsx")
 
         with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Processed Data")
@@ -70,6 +86,7 @@ def process_csv_to_excel(input_csv_path):
                 start_color="FFF2CC", end_color="FFF2CC", fill_type="solid"
             )
             highlight_cols = {
+                "ORDER-NUMBER",
                 "VEHICLE-NUMBER",
                 "ENGINE-NUMBER",
                 "DELIVERY-NUMBER",
@@ -99,18 +116,18 @@ def process_csv_to_excel(input_csv_path):
                 worksheet.column_dimensions[col_letter].width = max_len + 3
 
         messagebox.showinfo(
-            "Success",
-            f"Data successfully processed!\n\nSaved to: {output_excel_path}",
+            f"{localization["completion title"]}",
+            f"{localization["completion_msg"]}{localization["output_excel_path"]}",
         )
     except Exception as e:
-        messagebox.showerror("Error", f"An error occurred:\n\n{e}")
+        messagebox.showerror(f"{e_title}", f"{e_msg}{e}")
 
 
 class AppGUI:
 
     def __init__(self, root):
+        global localization
         self.root = root
-        self.root.title("CSV Data Processor")
 
         # Dimensions
         self.window_width = 450
@@ -125,22 +142,25 @@ class AppGUI:
 
         self.root.configure(bg=self.bg_dark)
 
-        self.file_path_var = StringVar()
-        self.file_path_var.set("No file selected.")
-
+        # Resolve asset path matching structure
         if getattr(sys, "frozen", False):
-            base_path = sys._MEIPASS
+            self.base_path = sys._MEIPASS
         else:
-            base_path = os.path.dirname(os.path.abspath(__file__))
+            self.base_path = os.path.dirname(os.path.abspath(__file__))
 
-        icon_filename = os.path.join(base_path, "icon.png")
-        bg_filename = os.path.join(base_path, "bg1.png")
-        gif_filename = os.path.join(base_path, "logo_t.gif")
+        icon_filename = os.path.join(self.base_path, "icon.png")
+        bg_filename = os.path.join(self.base_path, "bg1.png")
+        gif_filename = os.path.join(self.base_path, "logo_t.gif")
 
         self.app_icon = None
         self.pil_bg_base = None
         self.gif_frames = []
         self.current_frame_idx = 0
+
+        # Run string setup
+        self.root.title(f"{localization["title"]}")
+        self.file_path_var = StringVar()
+        self.file_path_var.set(f"{localization["selected file"]}")
 
         # --- Load Title Bar Icon ---
         if os.path.exists(icon_filename):
@@ -187,7 +207,7 @@ class AppGUI:
         # 1. Text Labels
         self.label_title = Label(
             root,
-            text="SELECTED INPUT FILE:",
+            text=f"{localization["instruction label"]}",
             font=("Consolas", 10, "bold"),
             bg=self.bg_dark,
             fg=self.fg_white,
@@ -207,7 +227,7 @@ class AppGUI:
         # 2. Action Buttons
         self.btn_browse = Button(
             root,
-            text="BROWSE FILE",
+            text=f"{localization["browse button"]}",
             width=18,
             font=("Consolas", 9, "bold"),
             bg=self.bg_panel,
@@ -222,7 +242,7 @@ class AppGUI:
 
         self.btn_process = Button(
             root,
-            text="EXECUTE PROCESS",
+            text=f"{localization["execute button"]}",
             width=18,
             font=("Consolas", 9, "bold"),
             bg=self.fg_white,
@@ -235,11 +255,36 @@ class AppGUI:
         )
         self.btn_process.pack(pady=3)
 
+        self.btn_graphic = Button(
+            root,
+            bg="#1A1A1A",
+            activebackground="#1A1A1A",
+            command=self.change_language,
+            bd=0,
+            highlightthickness=0,
+            relief="flat",
+        )
+        self.btn_graphic.pack(pady=3)
+
+        self.update_button_flag()
+
         if self.pil_bg_base:
             self.label_title.configure(bg="#1A1A1A")
             self.label_path.configure(bg="#1A1A1A")
 
         self.animate_interface()
+
+    def update_button_flag(self):
+        global localization
+        flag_file = os.path.join(self.base_path, f"{localization["language"]}.png")
+        if os.path.exists(flag_file):
+            try:
+                pil_img = Image.open(flag_file).convert("RGBA")
+                pil_resized = pil_img.resize((32, 32), Image.Resampling.LANCZOS)
+                self.btn_image_compiled = ImageTk.PhotoImage(pil_resized)
+                self.btn_graphic.configure(image=self.btn_image_compiled)
+            except Exception as e:
+                print(f"Failed to refresh flag image layout asset: {e}")
 
     def animate_interface(self):
         if self.pil_bg_base and self.gif_frames:
@@ -254,32 +299,74 @@ class AppGUI:
         elif not self.pil_bg_base and self.gif_frames:
             solid_bg = Image.new("RGBA", (self.window_width, self.window_height), self.bg_dark)
             current_frame = self.gif_frames[self.current_frame_idx]
-            dynamic_bg.alpha_composite(current_frame, dest=(161, 5))
+            solid_bg.alpha_composite(current_frame, dest=(161, 5))
             self.tk_rendered_bg = ImageTk.PhotoImage(solid_bg)
             self.label_bg.configure(image=self.tk_rendered_bg)
             self.current_frame_idx = (self.current_frame_idx + 1) % len(self.gif_frames)
             self.root.after(50, self.animate_interface)
 
-        elif self.pil_bg_base and not self.gif_frames:
-            self.tk_rendered_bg = ImageTk.PhotoImage(self.pil_bg_base)
-            self.label_bg.configure(image=self.tk_rendered_bg)
-
     def browse_file(self):
-        selected_file = filedialog.askopenfilename(
-            title="Select CSV file",
+        global localization
+        chosen = filedialog.askopenfilename(
+            title=f"{localization["selection dialogue"]}",
             filetypes=[("CSV files", "*.csv"), ("all files", "*.*")],
         )
-        if selected_file:
-            self.file_path_var.set(selected_file)
+        if chosen:
+            self.file_path_var.set(chosen)
 
     def start_processing(self):
+        global localization
         current_path = self.file_path_var.get()
-        if current_path == "No file selected." or not current_path:
-            messagebox.showwarning(
-                "Warning", "Please select a valid CSV file first before executing."
-            )
+        # Handles comparison across either translation variant context
+        if current_path in ["No file selected.", "Chưa chọn dữ liệu.", ""] or not current_path:
+            messagebox.showwarning(f"{localization["warning title"]}", f"{localization["warning message"]}")
             return
         process_csv_to_excel(current_path)
+
+    def change_language(self):
+        global localization
+        if localization["language"] == "VI":
+            localization["language"] = "EN"
+            localization["title"] = "CSV Data Processor"
+            localization["selected file"] = "No file selected."
+            localization["instruction label"] = "SELECTED INPUT FILE:"
+            localization["browse button"] = "BROWSE FILE"
+            localization["execute button"] = "EXECUTE PROCESS"
+            localization["warning title"] = "Warning"
+            localization["warning message"] = "Please select a valid CSV file first before executing."
+            localization["selection dialogue"] = "Select CSV file"
+            localization["completion title"] = "Success"
+            localization["completion message"] = "Data successfully processed!\n\nSaved to: "
+            localization["error title"] = "Error"
+            localization["error message"] = "An error occurred:\n\n"
+        elif localization["language"] == "EN":
+            localization["language"] = "VI"
+            localization["title"] = "Làm sạch dữ liệu CSV cho production order"
+            localization["selected file"] = "Chưa chọn dữ liệu."
+            localization["instruction label"] = "DỮ LIỆU ĐẦU VÀO:"
+            localization["browse button"] = "CHỌN TỆP DỮ LIỆU"
+            localization["execute button"] = "BẮT ĐẦU"
+            localization["warning title"] = "Cảnh báo"
+            localization["warning message"] = "Xin vui lòng chọn tệp tin CSV phù hợp trước khi nhấn BẮT ĐẦU."
+            localization["selection dialogue"] = "Chọn tệp tin CSV"
+            localization["completion title"] = "Thành công"
+            localization["completion message"] = "Toàn bộ dữ liệu đã được xử lý thành công!\n\nTệp tin được lưu vào: "
+            localization["error title"] = "Lỗi"
+            localization["error message"] = "Lỗi đã xuất hiện như sau:\n\n"
+
+        # 2. DYNAMICALLY RE-CONFIGURE WIDGETS ON SCREEN
+        self.root.title(f"{localization["title"]}")
+        self.label_title.configure(text=f"{localization["instruction label"]}")
+        self.btn_browse.configure(text=f"{localization["browse button"]}")
+        self.btn_process.configure(text=f"{localization["execute button"]}")
+
+        # Only reset path display fallback string if no file has been browsed yet
+        if self.file_path_var.get() in ["No file selected.", "Chưa chọn dữ liệu."]:
+            self.file_path_var.set(f"{localization["selected file"]}")
+
+        # Update the active flag image to show the new option
+        self.update_button_flag()
+
 
 def run_gui():
     root = Tk()
