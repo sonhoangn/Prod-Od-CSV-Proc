@@ -24,7 +24,7 @@ localization = {
 
 
 def process_csv_to_excel(input_csv_path):
-    global language
+    global localization
     try:
         df = pd.read_csv(input_csv_path, sep=";", dtype=str)
 
@@ -120,7 +120,7 @@ def process_csv_to_excel(input_csv_path):
             f"{localization["completion_msg"]}{localization["output_excel_path"]}",
         )
     except Exception as e:
-        messagebox.showerror(f"{e_title}", f"{e_msg}{e}")
+        messagebox.showerror(f"{localization["error title"]}", f"{localization["error message"]}{e}")
 
 
 class AppGUI:
