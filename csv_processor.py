@@ -28,12 +28,39 @@ def process_csv_to_excel(input_csv_path):
     try:
         df = pd.read_csv(input_csv_path, sep=";", dtype=str)
 
+        # 1. Process VEHICLE-NUMBER modifications, processed variations, and lengths
         if "VEHICLE-NUMBER" in df.columns:
-            df["VEHICLE-NUMBER"] = df["VEHICLE-NUMBER"].str[:17]
+            v_idx = df.columns.get_loc("VEHICLE-NUMBER")
 
+            # Calculate string length of the ORIGINAL values
+            v_lengths = df["VEHICLE-NUMBER"].fillna("").str.len()
+            df.insert(v_idx + 1, "VIN-STRING-LENGTH", v_lengths)
+
+            # Process string slice into the new validation column
+            v_processed = df["VEHICLE-NUMBER"].str[:17]
+            df.insert(v_idx + 2, "VEHICLE-NUMBER-processed", v_processed)
+
+            # Calculate string length of the PROCESSED values and place to its right
+            v_proc_lengths = v_processed.fillna("").str.len()
+            df.insert(v_idx + 3, "VIN-processed-STRING-LENGTH", v_proc_lengths)
+
+        # 2. Process ENGINE-NUMBER modifications, processed variations, and lengths
         if "ENGINE-NUMBER" in df.columns:
-            df["ENGINE-NUMBER"] = df["ENGINE-NUMBER"].str[:14]
+            e_idx = df.columns.get_loc("ENGINE-NUMBER")
 
+            # Calculate string length of the ORIGINAL values
+            e_lengths = df["ENGINE-NUMBER"].fillna("").str.len()
+            df.insert(e_idx + 1, "ENGINENO-STRING-LENGTH", e_lengths)
+
+            # Process string slice into the new validation column
+            e_processed = df["ENGINE-NUMBER"].str[:14]
+            df.insert(e_idx + 2, "ENGINE-NUMBER-processed", e_processed)
+
+            # Calculate string length of the PROCESSED values and place to its right
+            e_proc_lengths = e_processed.fillna("").str.len()
+            df.insert(e_idx + 3, "ENGINENO-processed-STRING-LENGTH", e_proc_lengths)
+
+        # 3. Process DELIVERY-NUMBER -> LOT-NUMBER translation mapping
         if "DELIVERY-NUMBER" in df.columns:
             mid_part = df["DELIVERY-NUMBER"].str[4:6].fillna("")
             right_part = df["DELIVERY-NUMBER"].str[-2:].fillna("")
@@ -41,6 +68,7 @@ def process_csv_to_excel(input_csv_path):
             delivery_idx = df.columns.get_loc("DELIVERY-NUMBER")
             df.insert(delivery_idx + 1, "LOT-NUMBER", lot_number_data)
 
+        # 4. Consolidate trailing unnamed split option codes arrays
         if "CODES" in df.columns:
             unnamed_cols = [
                 col for col in df.columns if str(col).startswith("Unnamed")
@@ -64,14 +92,35 @@ def process_csv_to_excel(input_csv_path):
             df.drop(columns=unnamed_cols, inplace=True)
             df.drop(columns=["CODES"], inplace=True)
 
+        # Build clean second extraction data sheet structure safely
+        clean_mapping = {
+            "Lot No": "LOT-NUMBER",
+            "Commission No": "ORDER-NUMBER",
+            "Body No": "PRODUCTION-NUMBER",
+            "Chassis No": "VEHICLE-NUMBER",
+            "Paint Color": "PAINT",
+            "Upholstery No": "INTERIOR",
+            "Engine No": "ENGINE-NUMBER",
+            "option": "COMBINED-CODE"
+        }
+
+        clean_df = pd.DataFrame()
+        for new_col, source_col in clean_mapping.items():
+            if source_col in df.columns:
+                clean_df[new_col] = df[source_col]
+            else:
+                clean_df[new_col] = ""
+
         file_dir, file_name = os.path.split(input_csv_path)
         base_name = os.path.splitext(file_name)[0]
         output_excel_path = os.path.join(file_dir, base_name + "_processed.xlsx")
 
+        # Excel layout generation thread engine
         with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Processed Data")
-            worksheet = writer.sheets["Processed Data"]
+            clean_df.to_excel(writer, index=False, sheet_name="Clean Data")
 
+            # Universal cell-styling definition arrays
             thin_border = Border(
                 left=Side(style="thin", color="D3D3D3"),
                 right=Side(style="thin", color="D3D3D3"),
@@ -82,45 +131,76 @@ def process_csv_to_excel(input_csv_path):
             header_fill = PatternFill(
                 start_color="366092", end_color="366092", fill_type="solid"
             )
-            highlight_fill = PatternFill(
+
+            # Highlight definitions
+            highlight_standard_fill = PatternFill(
                 start_color="FFF2CC", end_color="FFF2CC", fill_type="solid"
             )
-            highlight_cols = {
+            # UPDATED: Olive Green, Accent 3, Light 60% (#C4D79B)
+            highlight_olive_fill = PatternFill(
+                start_color="C4D79B", end_color="C4D79B", fill_type="solid"
+            )
+
+            # Processed columns and alternative metadata attributes get the standard highlight
+            highlight_cols_standard = {
                 "ORDER-NUMBER",
-                "VEHICLE-NUMBER",
-                "ENGINE-NUMBER",
+                "VEHICLE-NUMBER-processed",
+                "VIN-processed-STRING-LENGTH",
+                "ENGINE-NUMBER-processed",
+                "ENGINENO-processed-STRING-LENGTH",
                 "DELIVERY-NUMBER",
                 "LOT-NUMBER",
                 "COMBINED-CODE",
             }
 
-            for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row):
+            # Original raw data columns and their corresponding length attributes get matched to light olive green
+            highlight_cols_olive = {
+                "VEHICLE-NUMBER",
+                "VIN-STRING-LENGTH",
+                "ENGINE-NUMBER",
+                "ENGINENO-STRING-LENGTH"
+            }
+
+            # --- STYLE SHEET 1: Processed Data ---
+            ws1 = writer.sheets["Processed Data"]
+            for row in ws1.iter_rows(min_row=1, max_row=ws1.max_row):
                 for cell in row:
                     cell.border = thin_border
                     if cell.row == 1:
                         cell.font = header_font
                         cell.fill = header_fill
-                    if cell.row > 1:
-                        current_header = worksheet.cell(
-                            row=1, column=cell.column
-                        ).value
-                        if current_header in highlight_cols:
-                            cell.fill = highlight_fill
+                    else:
+                        current_header = ws1.cell(row=1, column=cell.column).value
+                        if current_header in highlight_cols_standard:
+                            cell.fill = highlight_standard_fill
+                        elif current_header in highlight_cols_olive:
+                            cell.fill = highlight_olive_fill
 
-            for col in worksheet.columns:
-                max_len = 0
+            for col in ws1.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
                 col_letter = col[0].column_letter
-                for cell in col:
-                    if cell.value:
-                        max_len = max(max_len, len(str(cell.value)))
-                worksheet.column_dimensions[col_letter].width = max_len + 3
+                ws1.column_dimensions[col_letter].width = max_len + 3
+
+            # --- STYLE SHEET 2: Clean Data ---
+            ws2 = writer.sheets["Clean Data"]
+            for row in ws2.iter_rows(min_row=1, max_row=ws2.max_row):
+                for cell in row:
+                    cell.border = thin_border
+                    if cell.row == 1:
+                        cell.font = header_font
+                        cell.fill = header_fill
+
+            for col in ws2.columns:
+                max_len = max(len(str(cell.value or '')) for cell in col)
+                col_letter = col[0].column_letter
+                ws2.column_dimensions[col_letter].width = max_len + 3
 
         messagebox.showinfo(
-            f"{localization["completion title"]}",
-            f"{localization["completion_msg"]}{localization["output_excel_path"]}",
+            f"{localization['completion title']}",
+            f"{localization['completion message']}{output_excel_path}",
         )
     except Exception as e:
-        messagebox.showerror(f"{localization["error title"]}", f"{localization["error message"]}{e}")
+        messagebox.showerror(f"{localization['error title']}", f"{localization['error message']}{e}")
 
 
 class AppGUI:
@@ -158,9 +238,9 @@ class AppGUI:
         self.current_frame_idx = 0
 
         # Run string setup
-        self.root.title(f"{localization["title"]}")
+        self.root.title(f"{localization['title']}")
         self.file_path_var = StringVar()
-        self.file_path_var.set(f"{localization["selected file"]}")
+        self.file_path_var.set(f"{localization['selected file']}")
 
         # --- Load Title Bar Icon ---
         if os.path.exists(icon_filename):
@@ -207,7 +287,7 @@ class AppGUI:
         # 1. Text Labels
         self.label_title = Label(
             root,
-            text=f"{localization["instruction label"]}",
+            text=f"{localization['instruction label']}",
             font=("Consolas", 10, "bold"),
             bg=self.bg_dark,
             fg=self.fg_white,
@@ -227,7 +307,7 @@ class AppGUI:
         # 2. Action Buttons
         self.btn_browse = Button(
             root,
-            text=f"{localization["browse button"]}",
+            text=f"{localization['browse button']}",
             width=18,
             font=("Consolas", 9, "bold"),
             bg=self.bg_panel,
@@ -242,7 +322,7 @@ class AppGUI:
 
         self.btn_process = Button(
             root,
-            text=f"{localization["execute button"]}",
+            text=f"{localization['execute button']}",
             width=18,
             font=("Consolas", 9, "bold"),
             bg=self.fg_white,
@@ -276,7 +356,7 @@ class AppGUI:
 
     def update_button_flag(self):
         global localization
-        flag_file = os.path.join(self.base_path, f"{localization["language"]}.png")
+        flag_file = os.path.join(self.base_path, f"{localization['language']}.png")
         if os.path.exists(flag_file):
             try:
                 pil_img = Image.open(flag_file).convert("RGBA")
@@ -308,7 +388,7 @@ class AppGUI:
     def browse_file(self):
         global localization
         chosen = filedialog.askopenfilename(
-            title=f"{localization["selection dialogue"]}",
+            title=f"{localization['selection dialogue']}",
             filetypes=[("CSV files", "*.csv"), ("all files", "*.*")],
         )
         if chosen:
@@ -317,9 +397,8 @@ class AppGUI:
     def start_processing(self):
         global localization
         current_path = self.file_path_var.get()
-        # Handles comparison across either translation variant context
         if current_path in ["No file selected.", "Chưa chọn dữ liệu.", ""] or not current_path:
-            messagebox.showwarning(f"{localization["warning title"]}", f"{localization["warning message"]}")
+            messagebox.showwarning(f"{localization['warning title']}", f"{localization['warning message']}")
             return
         process_csv_to_excel(current_path)
 
@@ -354,17 +433,14 @@ class AppGUI:
             localization["error title"] = "Lỗi"
             localization["error message"] = "Lỗi đã xuất hiện như sau:\n\n"
 
-        # 2. DYNAMICALLY RE-CONFIGURE WIDGETS ON SCREEN
-        self.root.title(f"{localization["title"]}")
-        self.label_title.configure(text=f"{localization["instruction label"]}")
-        self.btn_browse.configure(text=f"{localization["browse button"]}")
-        self.btn_process.configure(text=f"{localization["execute button"]}")
+        self.root.title(f"{localization['title']}")
+        self.label_title.configure(text=f"{localization['instruction label']}")
+        self.btn_browse.configure(text=f"{localization['browse button']}")
+        self.btn_process.configure(text=f"{localization['execute button']}")
 
-        # Only reset path display fallback string if no file has been browsed yet
         if self.file_path_var.get() in ["No file selected.", "Chưa chọn dữ liệu."]:
-            self.file_path_var.set(f"{localization["selected file"]}")
+            self.file_path_var.set(f"{localization['selected file']}")
 
-        # Update the active flag image to show the new option
         self.update_button_flag()
 
 
