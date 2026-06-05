@@ -32,17 +32,21 @@ def process_csv_to_excel(input_csv_path):
         if "VEHICLE-NUMBER" in df.columns:
             v_idx = df.columns.get_loc("VEHICLE-NUMBER")
 
+            # Extract the 10th character (Index 9) and place it immediately next to VEHICLE-NUMBER
+            v_11th = df["VEHICLE-NUMBER"].str[9]
+            df.insert(v_idx + 1, "VIN-11th-character", v_11th)
+
             # Calculate string length of the ORIGINAL values
             v_lengths = df["VEHICLE-NUMBER"].fillna("").str.len()
-            df.insert(v_idx + 1, "VIN-STRING-LENGTH", v_lengths)
+            df.insert(v_idx + 2, "VIN-STRING-LENGTH", v_lengths)
 
             # Process string slice into the new validation column
             v_processed = df["VEHICLE-NUMBER"].str[:17]
-            df.insert(v_idx + 2, "VEHICLE-NUMBER-processed", v_processed)
+            df.insert(v_idx + 3, "VEHICLE-NUMBER-processed", v_processed)
 
             # Calculate string length of the PROCESSED values and place to its right
             v_proc_lengths = v_processed.fillna("").str.len()
-            df.insert(v_idx + 3, "VIN-processed-STRING-LENGTH", v_proc_lengths)
+            df.insert(v_idx + 4, "VIN-processed-STRING-LENGTH", v_proc_lengths)
 
         # 2. Process ENGINE-NUMBER modifications, processed variations, and lengths
         if "ENGINE-NUMBER" in df.columns:
@@ -92,15 +96,15 @@ def process_csv_to_excel(input_csv_path):
             df.drop(columns=unnamed_cols, inplace=True)
             df.drop(columns=["CODES"], inplace=True)
 
-        # Build clean second extraction data sheet structure safely
+        # Build clean second extraction data sheet structure using processed pointers
         clean_mapping = {
             "Lot No": "LOT-NUMBER",
             "Commission No": "ORDER-NUMBER",
             "Body No": "PRODUCTION-NUMBER",
-            "Chassis No": "VEHICLE-NUMBER",
+            "Chassis No": "VEHICLE-NUMBER-processed",
             "Paint Color": "PAINT",
             "Upholstery No": "INTERIOR",
-            "Engine No": "ENGINE-NUMBER",
+            "Engine No": "ENGINE-NUMBER-processed",
             "option": "COMBINED-CODE"
         }
 
@@ -115,7 +119,7 @@ def process_csv_to_excel(input_csv_path):
         base_name = os.path.splitext(file_name)[0]
         output_excel_path = os.path.join(file_dir, base_name + "_processed.xlsx")
 
-        # Excel layout generation thread engine
+        # Excel layout generation engine
         with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Processed Data")
             clean_df.to_excel(writer, index=False, sheet_name="Clean Data")
@@ -136,12 +140,11 @@ def process_csv_to_excel(input_csv_path):
             highlight_standard_fill = PatternFill(
                 start_color="FFF2CC", end_color="FFF2CC", fill_type="solid"
             )
-            # UPDATED: Olive Green, Accent 3, Light 60% (#C4D79B)
             highlight_olive_fill = PatternFill(
                 start_color="C4D79B", end_color="C4D79B", fill_type="solid"
             )
 
-            # Processed columns and alternative metadata attributes get the standard highlight
+            # Processed columns and alternative metadata attributes get standard yellow highlight
             highlight_cols_standard = {
                 "ORDER-NUMBER",
                 "VEHICLE-NUMBER-processed",
@@ -153,9 +156,10 @@ def process_csv_to_excel(input_csv_path):
                 "COMBINED-CODE",
             }
 
-            # Original raw data columns and their corresponding length attributes get matched to light olive green
+            # Original raw data columns and their matching verification attributes get Olive Green
             highlight_cols_olive = {
                 "VEHICLE-NUMBER",
+                "VIN-11th-character",
                 "VIN-STRING-LENGTH",
                 "ENGINE-NUMBER",
                 "ENGINENO-STRING-LENGTH"
