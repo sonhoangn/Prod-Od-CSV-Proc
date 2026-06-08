@@ -34,7 +34,7 @@ def process_csv_to_excel(input_csv_path):
 
             # Extract the 10th character (Index 9) and place it immediately next to VEHICLE-NUMBER
             v_11th = df["VEHICLE-NUMBER"].str[9]
-            df.insert(v_idx + 1, "VIN-11th-character", v_11th)
+            df.insert(v_idx + 1, "VIN-10th-character", v_11th)
 
             # Calculate string length of the ORIGINAL values
             v_lengths = df["VEHICLE-NUMBER"].fillna("").str.len()
@@ -144,7 +144,7 @@ def process_csv_to_excel(input_csv_path):
                 start_color="C4D79B", end_color="C4D79B", fill_type="solid"
             )
 
-            # Processed columns and alternative metadata attributes get standard yellow highlight
+            # Yellow highlight
             highlight_cols_standard = {
                 "ORDER-NUMBER",
                 "VEHICLE-NUMBER-processed",
@@ -156,10 +156,10 @@ def process_csv_to_excel(input_csv_path):
                 "COMBINED-CODE",
             }
 
-            # Original raw data columns and their matching verification attributes get Olive Green
+            # Olive Green highlight
             highlight_cols_olive = {
                 "VEHICLE-NUMBER",
-                "VIN-11th-character",
+                "VIN-10th-character",
                 "VIN-STRING-LENGTH",
                 "ENGINE-NUMBER",
                 "ENGINENO-STRING-LENGTH"
